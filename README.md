@@ -90,7 +90,7 @@ chmod +x nudge-app-runner-1.2.1-installer.run
                                 │
                ┌────────────────┴────────────────┐
                ▼                                 ▼
-       [ Sisteme Kur ]                   [ Hemen Çalıştır ]
+      [ Install to System ]               [ Run Directly ]
                │                                 │
      Registers .desktop,                         │
      Icons & App Directory                       ▼
