@@ -9,6 +9,7 @@ import sys
 import os
 import re
 import shutil
+import locale
 import subprocess
 import argparse
 from pathlib import Path
@@ -21,6 +22,103 @@ APPLICATIONS_DIR = XDG_DATA_HOME / "applications"
 BIN_DIR = HOME / ".local" / "bin"
 ICONS_DIR = XDG_DATA_HOME / "icons" / "hicolor" / "scalable" / "apps"
 MIME_PACKAGES_DIR = XDG_DATA_HOME / "mime" / "packages"
+
+# ==============================================================================
+# Internationalization & Localization (i18n)
+# ==============================================================================
+def get_system_lang() -> str:
+    """Detects current system language from environment and locale."""
+    for var in ["LC_ALL", "LC_MESSAGES", "LANG"]:
+        val = os.environ.get(var, "")
+        if val:
+            code = val.split(".")[0].split("_")[0].lower()
+            if code in ["tr", "en", "de", "fr", "es", "ru", "ja", "ko", "zh"]:
+                return code
+    try:
+        loc = locale.getdefaultlocale()[0]
+        if loc:
+            code = loc.split("_")[0].lower()
+            if code in ["tr", "en", "de", "fr", "es", "ru", "ja", "ko", "zh"]:
+                return code
+    except Exception:
+        pass
+    return "en"
+
+TRANSLATIONS = {
+    "en": {
+        "window_title": "Nudge App Installer — {title}",
+        "gui_app": "🖥️ Desktop Application (GUI)",
+        "cli_app": "⚡ Terminal / Agent App (CLI)",
+        "lbl_source": "Source File:",
+        "lbl_version": "Version:",
+        "lbl_status": "Install Status:",
+        "status_installed": "✓ Installed on System",
+        "status_not_installed": "⚪ Not Installed",
+        "lbl_permissions": "Declared Effects & Permissions:",
+        "no_permissions": "🛡️ Standard Sandbox (No special effects declared)",
+        "btn_close": "Close",
+        "btn_install": "Install to System",
+        "btn_launch": "Launch App",
+        "btn_uninstall": "Uninstall from System",
+        "dialog_install_title": "Installation Successful",
+        "dialog_install_msg": "'{title}' has been integrated into your Linux application menu!\nYou can now search and launch it directly from your desktop.",
+        "dialog_uninstall_confirm_title": "Confirm Uninstall",
+        "dialog_uninstall_confirm_msg": "Are you sure you want to remove '{title}' from your system?",
+        "dialog_uninstall_success_title": "Uninstalled",
+        "dialog_uninstall_success_msg": "'{title}' was successfully removed from your system.",
+        "dialog_error_title": "Error",
+        "dialog_launch_error": "Failed to launch application:\n{err}",
+        "effects": {
+            "UI": "🖥️ Graphical UI (Window)",
+            "LLM": "🤖 AI Language Model (LLM)",
+            "Tool": "⚡ External Tool / MCP",
+            "IO": "💾 File & I/O Access",
+            "Net": "🌐 Network Access",
+            "Computer": "💻 Desktop Automation",
+            "Clock": "⏱️ Clock & Timing",
+            "Random": "🎲 Random Generator",
+            "Memory": "🧠 Session Memory",
+        }
+    },
+    "tr": {
+        "window_title": "Nudge Uygulama Yükleyicisi — {title}",
+        "gui_app": "🖥️ Masaüstü Uygulaması (GUI)",
+        "cli_app": "⚡ Terminal / Ajan Uygulaması (CLI)",
+        "lbl_source": "Kaynak Dosya:",
+        "lbl_version": "Sürüm:",
+        "lbl_status": "Kurulum Durumu:",
+        "status_installed": "✓ Sistemde Kurulu",
+        "status_not_installed": "⚪ Henüz Kurulu Değil",
+        "lbl_permissions": "Uygulama Yetkileri & Efektleri:",
+        "no_permissions": "🛡️ Standart İzolasyon (Özel etki bildirilmedi)",
+        "btn_close": "Kapat",
+        "btn_install": "Sisteme Kur",
+        "btn_launch": "Uygulamayı Başlat",
+        "btn_uninstall": "Sistemden Kaldır",
+        "dialog_install_title": "Kurulum Başarılı",
+        "dialog_install_msg": "'{title}' Linux masaüstü menünüze başarıyla eklendi!\nArtık Başlat Menüsü'nden arayıp doğrudan açabilirsiniz.",
+        "dialog_uninstall_confirm_title": "Kaldırma Onayı",
+        "dialog_uninstall_confirm_msg": "'{title}' uygulamasını sistemden kaldırmak istediğinize emin misiniz?",
+        "dialog_uninstall_success_title": "Kaldırıldı",
+        "dialog_uninstall_success_msg": "'{title}' sisteminizden başarıyla kaldırıldı.",
+        "dialog_error_title": "Hata",
+        "dialog_launch_error": "Uygulama başlatılırken hata oluştu:\n{err}",
+        "effects": {
+            "UI": "🖥️ Grafik Arayüz (GUI)",
+            "LLM": "🤖 Yapay Zeka (LLM)",
+            "Tool": "⚡ Harici Araç / MCP",
+            "IO": "💾 Dosya Sistemi & Giriş-Çıkış",
+            "Net": "🌐 Ağ Erişimi",
+            "Computer": "💻 Masaüstü Otomasyonu",
+            "Clock": "⏱️ Zaman & Saat",
+            "Random": "🎲 Rastgelelik",
+            "Memory": "🧠 Kalıcı Hafıza",
+        }
+    }
+}
+
+SYS_LANG = get_system_lang()
+T = TRANSLATIONS.get(SYS_LANG, TRANSLATIONS["en"])
 
 # Default Nudge SVG Icon content if none provided
 DEFAULT_NUDGE_SVG = """<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
@@ -39,18 +137,6 @@ DEFAULT_NUDGE_SVG = """<svg width="512" height="512" viewBox="0 0 512 512" xmlns
   <circle cx="396" cy="118" r="24" fill="url(#spark)"/>
 </svg>"""
 
-EFFECT_LABELS = {
-    "UI": ("🖥️ Grafik Arayüz (GUI)", "Pencere yöneticisi ve kullanıcı arayüzü"),
-    "LLM": ("🤖 Yapay Zeka (LLM)", "Dil modeli çağrıları ve çıkarım"),
-    "Tool": ("⚡ Araç Çağrısı (Tool/MCP)", "Harici araç ve MCP servisleri"),
-    "IO": ("💾 Dosya & Giriş-Çıkış (IO)", "Dosya okuma/yazma ve veri akışı"),
-    "Net": ("🌐 Ağ Erişimi (Network)", "HTTP ve harici ağ bağlantısı"),
-    "Computer": ("💻 Masaüstü Otomasyonu", "Fare, klavye ve ekran yönetimi"),
-    "Clock": ("⏱️ Zaman / Saat", "Zaman ölçümü ve gecikmeler"),
-    "Random": ("🎲 Rastgelelik", "Rastgele sayı üretimi"),
-    "Memory": ("🧠 Bellek Durumu", "Oturumlar arası kalıcı hafıza"),
-}
-
 def slugify(text: str) -> str:
     s = text.lower().strip()
     s = re.sub(r'[\s_]+', '-', s)
@@ -65,7 +151,7 @@ class NdgAppInfo:
         self.content = ""
         try:
             self.content = self.file_path.read_text(encoding="utf-8", errors="replace")
-        except Exception as e:
+        except Exception:
             self.content = ""
 
         self.title = ""
@@ -81,11 +167,17 @@ class NdgAppInfo:
     def _parse(self):
         # 1. Parse comments at top of file
         lines = self.content.splitlines()
-        desc_lines = []
-        for line in lines[:25]:
+        desc_candidates = []
+        for line in lines[:30]:
             stripped = line.strip()
             if stripped.startswith("//") or stripped.startswith("#"):
                 comment = stripped.lstrip("/# ").strip()
+                # Skip file paths (e.g. examples/file-manager/file_manager.ndg)
+                if re.search(r'\.(ndg|rs|py|ts|js|json|md)$', comment.lower()) or "/" in comment or "\\" in comment:
+                    continue
+                # Skip technical badges / compliance tags
+                if any(x in comment for x in ["100% Pure", "GATE-01", "Breeze Desktop HIG", "Apache License", "Copyright"]):
+                    continue
                 if comment.lower().startswith("title:"):
                     self.title = comment.split(":", 1)[1].strip()
                 elif comment.lower().startswith("version:"):
@@ -93,18 +185,16 @@ class NdgAppInfo:
                 elif comment.lower().startswith("author:"):
                     self.author = comment.split(":", 1)[1].strip()
                 elif comment.lower().startswith("description:"):
-                    desc_lines.append(comment.split(":", 1)[1].strip())
-                elif comment and not any(comment.lower().startswith(x) for x in ["http", "nudge", "copyright"]):
-                    if len(desc_lines) < 3:
-                        desc_lines.append(comment)
+                    desc_candidates.append(comment.split(":", 1)[1].strip())
+                elif comment and not any(comment.lower().startswith(x) for x in ["http://", "https://", "nudgec "]):
+                    desc_candidates.append(comment)
             elif stripped:
                 break
 
-        if desc_lines and not self.description:
-            self.description = " ".join(desc_lines)
+        if desc_candidates:
+            self.description = " ".join(desc_candidates)
 
         # 2. Parse AST / keywords
-        # Window / UI
         win_match = re.search(r'window\s+([A-Za-z0-9_]+)', self.content)
         title_match = re.search(r'title:\s*"([^"]+)"', self.content)
         if title_match:
@@ -119,7 +209,6 @@ class NdgAppInfo:
         agent_match = re.search(r'agent\s+([A-Za-z0-9_]+)', self.content)
         if not self.title:
             if agent_match:
-                # e.g. TriageAgent -> Triage Agent
                 name = agent_match.group(1)
                 self.title = re.sub(r'([a-z])([A-Z])', r'\1 \2', name)
             else:
@@ -128,12 +217,12 @@ class NdgAppInfo:
 
         if not self.description:
             if self.is_gui:
-                self.description = f"Nudge yerel masaüstü uygulaması ({self.title})"
+                self.description = f"Nudge native desktop application ({self.title})" if SYS_LANG != "tr" else f"Nudge yerel masaüstü uygulaması ({self.title})"
             else:
-                self.description = f"Nudge otonom ajan uygulaması ({self.title})"
+                self.description = f"Nudge autonomous agent application ({self.title})" if SYS_LANG != "tr" else f"Nudge otonom ajan uygulaması ({self.title})"
 
         # Effects
-        for effect in EFFECT_LABELS.keys():
+        for effect in ["UI", "LLM", "Tool", "IO", "Net", "Computer", "Clock", "Random", "Memory"]:
             if re.search(rf'\buses\s+[^;{{]*\b{effect}\b', self.content):
                 self.effects.add(effect)
         if self.is_gui:
@@ -177,6 +266,24 @@ class NdgAppInfo:
 
 class NudgeAppManager:
     @staticmethod
+    def find_runner() -> str:
+        """Locates the nudge-runner executable with fallback locations."""
+        script_dir = Path(__file__).resolve().parent
+        candidates = [
+            script_dir / "nudge-runner",
+            BIN_DIR / "nudge-runner",
+            Path("/usr/local/bin/nudge-runner"),
+            Path("/usr/bin/nudge-runner"),
+        ]
+        for c in candidates:
+            if c.is_file() and os.access(c, os.X_OK):
+                return str(c)
+        which_path = shutil.which("nudge-runner")
+        if which_path:
+            return which_path
+        return "nudge-runner"
+
+    @staticmethod
     def install(app: NdgAppInfo) -> bool:
         """Installs the .ndg application into standard XDG desktop environment."""
         NUDGE_APPS_DIR.mkdir(parents=True, exist_ok=True)
@@ -216,12 +323,13 @@ class NudgeAppManager:
             target_icon.write_text(DEFAULT_NUDGE_SVG, encoding="utf-8")
 
         # 4. Create launcher wrapper script in ~/.local/bin
+        runner_bin = NudgeAppManager.find_runner()
         wrapper_path = app.installed_executable_path
         wrapper_content = f"""#!/usr/bin/env bash
 # Nudge Application Wrapper for {app.title}
 APP_FILE="{target_file}"
 cd "{target_dir}"
-exec nudge-runner "$APP_FILE" --exec "$@"
+exec "{runner_bin}" "$APP_FILE" --exec "$@"
 """
         wrapper_path.write_text(wrapper_content, encoding="utf-8")
         wrapper_path.chmod(0o755)
@@ -281,15 +389,20 @@ StartupNotify=true
 
     @staticmethod
     def launch(app: NdgAppInfo):
-        """Runs the application using nudge-runner."""
+        """Runs the application using nudge-runner detached in its own session."""
+        runner_bin = NudgeAppManager.find_runner()
         file_to_run = str(app.file_path)
         if app.is_installed:
             installed_file = app.installed_app_dir / app.filename
             if installed_file.exists():
                 file_to_run = str(installed_file)
 
-        cmd = ["nudge-runner", file_to_run, "--exec"]
-        subprocess.Popen(cmd)
+        env = os.environ.copy()
+        # Ensure ~/.local/bin is in PATH so nudgec and tools are found
+        env["PATH"] = f"{BIN_DIR}:{env.get('PATH', '')}"
+
+        cmd = [runner_bin, file_to_run, "--exec"]
+        subprocess.Popen(cmd, cwd=str(app.dir_path), env=env, start_new_session=True)
 
     @staticmethod
     def list_installed():
@@ -312,13 +425,11 @@ StartupNotify=true
 
     @staticmethod
     def setup_system():
-        """Registers MIME types, icons, and launcher associations for the desktop environment."""
         APPLICATIONS_DIR.mkdir(parents=True, exist_ok=True)
         MIME_PACKAGES_DIR.mkdir(parents=True, exist_ok=True)
         ICONS_DIR.mkdir(parents=True, exist_ok=True)
         BIN_DIR.mkdir(parents=True, exist_ok=True)
 
-        # MIME file
         mime_target = MIME_PACKAGES_DIR / "application-x-nudge.xml"
         mime_content = """<?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
@@ -333,13 +444,11 @@ StartupNotify=true
 </mime-info>"""
         mime_target.write_text(mime_content, encoding="utf-8")
 
-        # Icons
         nudge_icon = ICONS_DIR / "nudge.svg"
         mime_icon = ICONS_DIR / "application-x-nudge.svg"
         nudge_icon.write_text(DEFAULT_NUDGE_SVG, encoding="utf-8")
         mime_icon.write_text(DEFAULT_NUDGE_SVG, encoding="utf-8")
 
-        # Desktop entry for installer
         installer_desktop = APPLICATIONS_DIR / "nudge-app-installer.desktop"
         installer_desktop_content = f"""[Desktop Entry]
 Version=1.0
@@ -358,13 +467,9 @@ NoDisplay=false
 """
         installer_desktop.write_text(installer_desktop_content, encoding="utf-8")
 
-        # Update databases
         subprocess.run(["update-mime-database", str(XDG_DATA_HOME / "mime")], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         subprocess.run(["update-desktop-database", str(APPLICATIONS_DIR)], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-        # Set default MIME handler
         subprocess.run(["xdg-mime", "default", "nudge-app-installer.desktop", "application/x-nudge"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print("✓ Nudge Linux masaüstü ve dosya türü entegrasyonu başarıyla tamamlandı.")
         return True
 
 
@@ -374,19 +479,18 @@ NoDisplay=false
 def run_qt_gui(app_info: NdgAppInfo):
     from PyQt6.QtWidgets import (
         QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-        QLabel, QPushButton, QFrame, QMessageBox, QGraphicsDropShadowEffect
+        QLabel, QPushButton, QFrame, QMessageBox
     )
-    from PyQt6.QtCore import Qt, QSize
-    from PyQt6.QtGui import QIcon, QFont, QColor
+    from PyQt6.QtCore import Qt
+    from PyQt6.QtGui import QFont
 
     qt_app = QApplication(sys.argv)
     qt_app.setApplicationName("Nudge App Installer")
 
     window = QMainWindow()
-    window.setWindowTitle(f"Nudge Uygulama Yükleyicisi — {app_info.title}")
+    window.setWindowTitle(T["window_title"].format(title=app_info.title))
     window.setFixedSize(560, 480)
 
-    # Styling (Deep modern dark theme with vibrant accents)
     window.setStyleSheet("""
         QMainWindow {
             background-color: #12131A;
@@ -399,12 +503,6 @@ def run_qt_gui(app_info: NdgAppInfo):
             background-color: #1E202E;
             border-radius: 12px;
             border: 1px solid #2D3148;
-        }
-        QFrame#badge {
-            background-color: #282B3E;
-            border-radius: 6px;
-            border: 1px solid #3B405A;
-            padding: 4px 8px;
         }
         QPushButton {
             font-family: 'Segoe UI', system-ui, sans-serif;
@@ -454,11 +552,10 @@ def run_qt_gui(app_info: NdgAppInfo):
     root_layout.setContentsMargins(24, 24, 24, 24)
     root_layout.setSpacing(16)
 
-    # 1. Header (Icon + Titles + Type Pill)
+    # Header
     header_layout = QHBoxLayout()
     header_layout.setSpacing(16)
 
-    # Icon Placeholder / SVG
     icon_box = QLabel()
     icon_box.setFixedSize(64, 64)
     icon_box.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4F46E5, stop:1 #7C3AED); border-radius: 14px;")
@@ -474,7 +571,7 @@ def run_qt_gui(app_info: NdgAppInfo):
     lbl_title.setStyleSheet("color: #FFFFFF;")
     title_layout.addWidget(lbl_title)
 
-    type_text = "🖥️ Masaüstü Uygulaması (GUI)" if app_info.is_gui else "⚡ Ajan / Terminal Uygulaması (CLI)"
+    type_text = T["gui_app"] if app_info.is_gui else T["cli_app"]
     type_color = "#38BDF8" if app_info.is_gui else "#FBBF24"
     lbl_type = QLabel(type_text)
     lbl_type.setFont(QFont("Segoe UI", 11, QFont.Weight.Medium))
@@ -485,33 +582,30 @@ def run_qt_gui(app_info: NdgAppInfo):
     header_layout.addStretch()
     root_layout.addLayout(header_layout)
 
-    # 2. Main Info Card
+    # Info Card
     card = QFrame()
     card.setObjectName("card")
     card_layout = QVBoxLayout(card)
     card_layout.setContentsMargins(16, 16, 16, 16)
     card_layout.setSpacing(12)
 
-    # Description
     lbl_desc = QLabel(app_info.description)
     lbl_desc.setWordWrap(True)
     lbl_desc.setStyleSheet("color: #CBD5E1; font-size: 13px; line-height: 1.4;")
     card_layout.addWidget(lbl_desc)
 
-    # Separator
     sep = QFrame()
     sep.setFrameShape(QFrame.Shape.HLine)
     sep.setStyleSheet("color: #2D3148;")
     card_layout.addWidget(sep)
 
-    # Details Grid
     details_layout = QVBoxLayout()
     details_layout.setSpacing(6)
 
     def add_meta_row(label, val):
         row = QHBoxLayout()
         lbl_k = QLabel(label)
-        lbl_k.setFixedWidth(120)
+        lbl_k.setFixedWidth(140)
         lbl_k.setStyleSheet("color: #94A3B8; font-size: 12px;")
         lbl_v = QLabel(str(val))
         lbl_v.setStyleSheet("color: #F1F5F9; font-size: 12px;")
@@ -520,16 +614,16 @@ def run_qt_gui(app_info: NdgAppInfo):
         row.addWidget(lbl_v, 1)
         details_layout.addLayout(row)
 
-    add_meta_row("Kaynak Dosya:", app_info.file_path.name)
-    add_meta_row("Sürüm:", app_info.version)
+    add_meta_row(T["lbl_source"], app_info.file_path.name)
+    add_meta_row(T["lbl_version"], app_info.version)
 
-    status_str = "✓ Sistemde Kurulu" if app_info.is_installed else "⚪ Henüz Kurulu Değil"
+    status_str = T["status_installed"] if app_info.is_installed else T["status_not_installed"]
     status_color = "#34D399" if app_info.is_installed else "#94A3B8"
     lbl_status_val = QLabel(status_str)
     lbl_status_val.setStyleSheet(f"color: {status_color}; font-size: 12px; font-weight: bold;")
     row_st = QHBoxLayout()
-    lbl_st_k = QLabel("Kurulum Durumu:")
-    lbl_st_k.setFixedWidth(120)
+    lbl_st_k = QLabel(T["lbl_status"])
+    lbl_st_k.setFixedWidth(140)
     lbl_st_k.setStyleSheet("color: #94A3B8; font-size: 12px;")
     row_st.addWidget(lbl_st_k)
     row_st.addWidget(lbl_status_val, 1)
@@ -537,8 +631,8 @@ def run_qt_gui(app_info: NdgAppInfo):
 
     card_layout.addLayout(details_layout)
 
-    # Permissions / Effects Section
-    lbl_perm_title = QLabel("Uygulama Yetkileri & Efektleri:")
+    # Permissions
+    lbl_perm_title = QLabel(T["lbl_permissions"])
     lbl_perm_title.setStyleSheet("color: #94A3B8; font-size: 11px; font-weight: bold; margin-top: 4px;")
     card_layout.addWidget(lbl_perm_title)
 
@@ -546,12 +640,12 @@ def run_qt_gui(app_info: NdgAppInfo):
     badges_layout.setSpacing(8)
     if app_info.effects:
         for eff in sorted(app_info.effects):
-            label_text, _ = EFFECT_LABELS.get(eff, (f"⚡ {eff}", ""))
+            label_text = T["effects"].get(eff, f"⚡ {eff}")
             b = QLabel(label_text)
             b.setStyleSheet("background-color: #282B3E; color: #E2E8F0; border-radius: 6px; padding: 4px 8px; font-size: 11px; border: 1px solid #3B405A;")
             badges_layout.addWidget(b)
     else:
-        no_b = QLabel("🛡️ Standart İzolasyon (Özel etki yok)")
+        no_b = QLabel(T["no_permissions"])
         no_b.setStyleSheet("color: #64748B; font-size: 11px;")
         badges_layout.addWidget(no_b)
     badges_layout.addStretch()
@@ -560,55 +654,71 @@ def run_qt_gui(app_info: NdgAppInfo):
     root_layout.addWidget(card)
     root_layout.addStretch()
 
-    # 3. Action Buttons Footer
+    # Footer Buttons
     btn_layout = QHBoxLayout()
     btn_layout.setSpacing(10)
 
-    btn_close = QPushButton("Kapat")
+    btn_close = QPushButton(T["btn_close"])
     btn_close.setObjectName("btnClose")
     btn_close.clicked.connect(window.close)
     btn_layout.addWidget(btn_close)
 
     btn_layout.addStretch()
 
-    btn_uninstall = QPushButton("Sistemden Kaldır")
+    btn_uninstall = QPushButton(T["btn_uninstall"])
     btn_uninstall.setObjectName("btnUninstall")
     btn_uninstall.setVisible(app_info.is_installed)
 
-    btn_launch = QPushButton("Uygulamayı Başlat")
+    btn_launch = QPushButton(T["btn_launch"])
     btn_launch.setObjectName("btnLaunch")
 
-    btn_install = QPushButton("Sisteme Kur")
+    btn_install = QPushButton(T["btn_install"])
     btn_install.setObjectName("btnInstall")
     btn_install.setVisible(not app_info.is_installed)
 
     def do_install():
         try:
             NudgeAppManager.install(app_info)
-            lbl_status_val.setText("✓ Sistemde Kurulu")
+            lbl_status_val.setText(T["status_installed"])
             lbl_status_val.setStyleSheet("color: #34D399; font-size: 12px; font-weight: bold;")
             btn_install.setVisible(False)
             btn_uninstall.setVisible(True)
-            QMessageBox.information(window, "Kurulum Başarılı", f"'{app_info.title}' Linux masaüstü menünüze eklendi!\nArtık doğrudan Başlat Menüsü'nden veya çift tıklayarak açabilirsiniz.")
+            QMessageBox.information(
+                window,
+                T["dialog_install_title"],
+                T["dialog_install_msg"].format(title=app_info.title)
+            )
         except Exception as ex:
-            QMessageBox.critical(window, "Kurulum Hatası", f"Uygulama kurulurken hata oluştu:\n{ex}")
+            QMessageBox.critical(window, T["dialog_error_title"], str(ex))
 
     def do_uninstall():
-        reply = QMessageBox.question(window, "Kaldırma Onayı", f"'{app_info.title}' uygulamasını sistemden kaldırmak istediğinize emin misiniz?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(
+            window,
+            T["dialog_uninstall_confirm_title"],
+            T["dialog_uninstall_confirm_msg"].format(title=app_info.title),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
         if reply == QMessageBox.StandardButton.Yes:
             try:
                 NudgeAppManager.uninstall(app_info)
-                lbl_status_val.setText("⚪ Henüz Kurulu Değil")
+                lbl_status_val.setText(T["status_not_installed"])
                 lbl_status_val.setStyleSheet("color: #94A3B8; font-size: 12px; font-weight: bold;")
                 btn_install.setVisible(True)
                 btn_uninstall.setVisible(False)
-                QMessageBox.information(window, "Kaldırıldı", f"'{app_info.title}' sisteminizden başarıyla kaldırıldı.")
+                QMessageBox.information(
+                    window,
+                    T["dialog_uninstall_success_title"],
+                    T["dialog_uninstall_success_msg"].format(title=app_info.title)
+                )
             except Exception as ex:
-                QMessageBox.critical(window, "Hata", f"Kaldırma sırasında hata oluştu:\n{ex}")
+                QMessageBox.critical(window, T["dialog_error_title"], str(ex))
 
     def do_launch():
-        window.close()
-        NudgeAppManager.launch(app_info)
+        try:
+            NudgeAppManager.launch(app_info)
+            window.close()
+        except Exception as ex:
+            QMessageBox.critical(window, T["dialog_error_title"], T["dialog_launch_error"].format(err=ex))
 
     btn_install.clicked.connect(do_install)
     btn_uninstall.clicked.connect(do_uninstall)
@@ -625,73 +735,73 @@ def run_qt_gui(app_info: NdgAppInfo):
 
 
 # ==============================================================================
-# Tkinter Fallback GUI Implementation (Zero external Python dependencies)
+# Tkinter Fallback GUI Implementation
 # ==============================================================================
 def run_tk_gui(app_info: NdgAppInfo):
     import tkinter as tk
     from tkinter import messagebox
 
     root = tk.Tk()
-    root.title(f"Nudge Yükleyici — {app_info.title}")
+    root.title(T["window_title"].format(title=app_info.title))
     root.geometry("540x440")
     root.configure(bg="#1E202E")
     root.resizable(False, False)
 
-    # Header
     lbl_title = tk.Label(root, text=app_info.title, font=("Helvetica", 16, "bold"), fg="#FFFFFF", bg="#1E202E")
     lbl_title.pack(pady=(20, 4))
 
-    type_text = "🖥️ Masaüstü Uygulaması (GUI)" if app_info.is_gui else "⚡ Ajan / Terminal Uygulaması (CLI)"
+    type_text = T["gui_app"] if app_info.is_gui else T["cli_app"]
     lbl_type = tk.Label(root, text=type_text, font=("Helvetica", 10), fg="#38BDF8" if app_info.is_gui else "#FBBF24", bg="#1E202E")
     lbl_type.pack(pady=(0, 15))
 
-    # Card
     card = tk.Frame(root, bg="#282B3E", padx=16, pady=16)
     card.pack(fill="x", padx=20, pady=5)
 
     lbl_desc = tk.Label(card, text=app_info.description, font=("Helvetica", 10), fg="#CBD5E1", bg="#282B3E", wraplength=480, justify="left")
     lbl_desc.pack(anchor="w", pady=(0, 10))
 
-    lbl_file = tk.Label(card, text=f"Dosya: {app_info.file_path.name}", font=("Helvetica", 9), fg="#94A3B8", bg="#282B3E")
+    lbl_file = tk.Label(card, text=f"{T['lbl_source']} {app_info.file_path.name}", font=("Helvetica", 9), fg="#94A3B8", bg="#282B3E")
     lbl_file.pack(anchor="w")
 
-    st_txt = "Kurulum: ✓ Sistemde Kurulu" if app_info.is_installed else "Kurulum: ⚪ Henüz Kurulu Değil"
+    st_txt = f"{T['lbl_status']} {T['status_installed'] if app_info.is_installed else T['status_not_installed']}"
     lbl_status = tk.Label(card, text=st_txt, font=("Helvetica", 9, "bold"), fg="#34D399" if app_info.is_installed else "#94A3B8", bg="#282B3E")
     lbl_status.pack(anchor="w", pady=(4, 0))
 
-    # Buttons Frame
     btn_frame = tk.Frame(root, bg="#1E202E", pady=20)
     btn_frame.pack(fill="x", padx=20, side="bottom")
 
     def tk_install():
         NudgeAppManager.install(app_info)
-        messagebox.showinfo("Başarılı", f"'{app_info.title}' sisteme kuruldu!")
+        messagebox.showinfo(T["dialog_install_title"], T["dialog_install_msg"].format(title=app_info.title))
         root.destroy()
 
     def tk_launch():
-        root.destroy()
-        NudgeAppManager.launch(app_info)
+        try:
+            NudgeAppManager.launch(app_info)
+            root.destroy()
+        except Exception as ex:
+            messagebox.showerror(T["dialog_error_title"], str(ex))
 
     def tk_uninstall():
-        if messagebox.askyesno("Onay", f"'{app_info.title}' sistemden kaldırılsın mı?"):
+        if messagebox.askyesno(T["dialog_uninstall_confirm_title"], T["dialog_uninstall_confirm_msg"].format(title=app_info.title)):
             NudgeAppManager.uninstall(app_info)
-            messagebox.showinfo("Kaldırıldı", "Uygulama kaldırıldı.")
+            messagebox.showinfo(T["dialog_uninstall_success_title"], T["dialog_uninstall_success_msg"].format(title=app_info.title))
             root.destroy()
 
-    tk.Button(btn_frame, text="Kapat", command=root.destroy, bg="#3B405A", fg="#FFFFFF", padx=10, pady=5).pack(side="left")
+    tk.Button(btn_frame, text=T["btn_close"], command=root.destroy, bg="#3B405A", fg="#FFFFFF", padx=10, pady=5).pack(side="left")
 
     if app_info.is_installed:
-        tk.Button(btn_frame, text="Sistemden Kaldır", command=tk_uninstall, bg="#EF4444", fg="#FFFFFF", padx=10, pady=5).pack(side="right", padx=5)
+        tk.Button(btn_frame, text=T["btn_uninstall"], command=tk_uninstall, bg="#EF4444", fg="#FFFFFF", padx=10, pady=5).pack(side="right", padx=5)
     else:
-        tk.Button(btn_frame, text="Sisteme Kur", command=tk_install, bg="#6366F1", fg="#FFFFFF", padx=10, pady=5).pack(side="right", padx=5)
+        tk.Button(btn_frame, text=T["btn_install"], command=tk_install, bg="#6366F1", fg="#FFFFFF", padx=10, pady=5).pack(side="right", padx=5)
 
-    tk.Button(btn_frame, text="Çalıştır", command=tk_launch, bg="#10B981", fg="#FFFFFF", padx=10, pady=5).pack(side="right", padx=5)
+    tk.Button(btn_frame, text=T["btn_launch"], command=tk_launch, bg="#10B981", fg="#FFFFFF", padx=10, pady=5).pack(side="right", padx=5)
 
     root.mainloop()
 
 
 # ==============================================================================
-# CLI / Main Entrypoint
+# CLI Entrypoint
 # ==============================================================================
 def main():
     parser = argparse.ArgumentParser(description="Nudge App Installer & Manager for Linux")
@@ -711,21 +821,20 @@ def main():
 
     if args.list:
         installed = NudgeAppManager.list_installed()
-        print(f"Sistemde kurulu Nudge uygulamaları ({len(installed)}):")
+        print(f"Installed Nudge Applications ({len(installed)}):")
         for app in installed:
             print(f"  • {app['name']} [{app['id']}] -> {app['exec']}")
         return
 
     if args.uninstall:
         target_id = args.uninstall
-        # Construct dummy info for uninstall
         class DummyInfo:
             app_id = target_id
             desktop_file_path = APPLICATIONS_DIR / f"{target_id}.desktop"
             installed_executable_path = BIN_DIR / target_id
             installed_app_dir = NUDGE_APPS_DIR / target_id
         NudgeAppManager.uninstall(DummyInfo())
-        print(f"✓ '{target_id}' uygulaması sistemden kaldırıldı.")
+        print(f"✓ '{target_id}' uninstalled.")
         return
 
     if not args.file:
@@ -734,16 +843,14 @@ def main():
 
     target_path = Path(args.file)
     if not target_path.exists():
-        print(f"Hata: Belirtilen dosya bulunamadı: {args.file}", file=sys.stderr)
+        print(f"Error: file not found: {args.file}", file=sys.stderr)
         sys.exit(1)
 
     app_info = NdgAppInfo(target_path)
 
     if args.install:
         NudgeAppManager.install(app_info)
-        print(f"✓ '{app_info.title}' uygulaması sisteme başarıyla kuruldu.")
-        print(f"  Masaüstü girişi: {app_info.desktop_file_path}")
-        print(f"  Komut: {app_info.installed_executable_path}")
+        print(f"✓ '{app_info.title}' installed successfully.")
         return
 
     if args.launch:
@@ -751,32 +858,29 @@ def main():
         return
 
     if args.cli:
-        print(f"Uygulama: {app_info.title} ({app_info.version})")
-        print(f"Tip: {'GUI' if app_info.is_gui else 'CLI'}")
-        print(f"Açıklama: {app_info.description}")
-        print(f"Yetkiler: {', '.join(sorted(app_info.effects)) or 'Yok'}")
-        print(f"Kurulu mu: {'Evet' if app_info.is_installed else 'Hayır'}")
+        print(f"Title: {app_info.title} (v{app_info.version})")
+        print(f"Type: {'GUI' if app_info.is_gui else 'CLI'}")
+        print(f"Description: {app_info.description}")
+        print(f"Effects: {', '.join(sorted(app_info.effects)) or 'None'}")
+        print(f"Installed: {'Yes' if app_info.is_installed else 'No'}")
         return
 
-    # Attempt PyQt6 first; fallback to Tkinter
     try:
         run_qt_gui(app_info)
     except ImportError:
         try:
             run_tk_gui(app_info)
         except ImportError:
-            # Fallback to interactive terminal if no GUI libraries exist
-            print(f"\n=== Nudge Uygulama Yükleyicisi ===")
-            print(f"Uygulama: {app_info.title} (v{app_info.version})")
-            print(f"Açıklama: {app_info.description}")
-            print(f"Tip: {'GUI' if app_info.is_gui else 'CLI / Terminal'}")
-            print(f"Yetkiler: {', '.join(sorted(app_info.effects)) or 'Yok'}")
-            print(f"Durum: {'Sistemde Kurulu' if app_info.is_installed else 'Henüz Kurulu Değil'}\n")
-            ans = input("Seçiminiz: [K]ur, [Ç]alıştır, [C]ıkış: ").strip().lower()
-            if ans == 'k':
+            print(f"\n=== {T['window_title'].format(title=app_info.title)} ===")
+            print(f"Title: {app_info.title} (v{app_info.version})")
+            print(f"Description: {app_info.description}")
+            print(f"Type: {'GUI' if app_info.is_gui else 'CLI'}")
+            print(f"Status: {T['status_installed'] if app_info.is_installed else T['status_not_installed']}\n")
+            ans = input("[I]nstall, [L]aunch, [Q]uit: ").strip().lower()
+            if ans in ['i', 'k']:
                 NudgeAppManager.install(app_info)
-                print(f"✓ Kuruldu!")
-            elif ans == 'ç':
+                print("✓ Installed!")
+            elif ans in ['l', 'ç']:
                 NudgeAppManager.launch(app_info)
 
 if __name__ == "__main__":
