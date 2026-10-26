@@ -1,0 +1,14 @@
+// Title: Financial Triage Agent
+// Description: Autonomous triage agent analyzing incoming balance sheets using LLMs.
+// Version: 2.1.0
+
+type Report = { balance: float, flagged: bool }
+
+fn analyze(data: string) -> Report uses LLM, IO {
+    llm"""Review financial record: {data}"""
+    with { schema: Report, model: "fake:default", budget: 0.05 USD }
+}
+
+fn main() -> Report uses LLM, IO {
+    analyze("Q3 Revenue data")
+}

@@ -1,0 +1,27 @@
+// Sample Nudge GUI application
+// Description: A demonstration of native windowing and reactive UI state in Nudge.
+// Version: 1.2.0
+
+view MainView(count: int) -> View {
+    column(padding = 16, gap = 8) [
+        text("Counter: " + count),
+        button("Increment", id = "btn_inc", on_click = inc)
+    ]
+}
+
+agent CounterApp {
+    state { count: int = 0 }
+    fn inc() uses UI {
+        state.count = state.count + 1
+    }
+    window MainWindow {
+        title: "Nudge Counter",
+        width: 320,
+        height: 200,
+        content: MainView(state.count)
+    }
+}
+
+fn main() uses UI {
+    CounterApp.MainWindow.open()
+}

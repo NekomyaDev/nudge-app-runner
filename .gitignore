@@ -1,0 +1,20 @@
+# Distribution artifacts
+dist/
+build/
+*.deb
+*.run
+*.tar.gz
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
